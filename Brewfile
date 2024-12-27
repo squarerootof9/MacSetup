@@ -17,6 +17,7 @@ brew "dockutil"
 # Casks (GUI applications)
 cask "vlc"
 cask "firefox"
+cask "thunderbird"
 cask "iterm2"
 cask "geany"
 cask "arduino"
@@ -35,6 +36,8 @@ cask "android-studio"
 cask "stellarium"
 cask "transmission"
 cask "orcaslicer"
+cask "xca"
+
 
 # Optional: Mac App Store applications via mas
 # Uncomment the following lines if you want to include them
