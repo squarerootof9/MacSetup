@@ -13,6 +13,7 @@ brew "esptool"
 brew "wget"
 brew "jq"
 brew "dockutil"
+brew "iproute2mac"
 
 # Casks (GUI applications)
 cask "vlc"
