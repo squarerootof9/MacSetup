@@ -14,6 +14,7 @@ brew "wget"
 brew "jq"
 brew "dockutil"
 brew "iproute2mac"
+brew "telnet"
 
 # Casks (GUI applications)
 cask "vlc"
