@@ -39,6 +39,7 @@ cask "stellarium"
 cask "transmission"
 cask "orcaslicer"
 cask "xca"
+cask "veracrypt"
 
 
 # Optional: Mac App Store applications via mas
