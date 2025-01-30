@@ -15,6 +15,7 @@ brew "jq"
 brew "dockutil"
 brew "iproute2mac"
 brew "telnet"
+brew "opensc"
 
 # Casks (GUI applications)
 cask "vlc"
@@ -40,6 +41,7 @@ cask "transmission"
 cask "orcaslicer"
 cask "xca"
 cask "veracrypt"
+cask "skype"
 
 
 # Optional: Mac App Store applications via mas
