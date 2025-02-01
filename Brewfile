@@ -16,6 +16,7 @@ brew "dockutil"
 brew "iproute2mac"
 brew "telnet"
 brew "opensc"
+brew "node@23"
 
 # Casks (GUI applications)
 cask "vlc"
