@@ -67,8 +67,8 @@ This project aims to simplify the initial setup of a macOS system by automating 
 1. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/yourusername/yourrepository.git
-   cd yourrepository
+   git clone https://github.com/squarerootof9/MacSetup
+   cd MacSetup
    ```
 
 2. **Make the Script Executable:**
