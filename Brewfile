@@ -26,6 +26,7 @@ cask "thunderbird"
 cask "iterm2"
 cask "geany"
 cask "arduino-ide"
+cask "raspberry-pi-imager"
 cask "freecad"
 cask "visual-studio-code"
 cask "vscodium"
@@ -45,7 +46,6 @@ cask "xca"
 cask "veracrypt"
 cask "skype"
 cask "obs"
-
 
 # Optional: Mac App Store applications via mas
 # Uncomment the following lines if you want to include them
