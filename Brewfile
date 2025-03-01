@@ -44,7 +44,6 @@ cask "transmission"
 cask "orcaslicer"
 cask "xca"
 cask "veracrypt"
-cask "skype"
 cask "obs"
 
 # Optional: Mac App Store applications via mas
