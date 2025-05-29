@@ -7,8 +7,8 @@
 
 # Formulae (Command-line tools)
 brew "kdoctor"
-brew "openjdk" # This installs Java
-brew "cocoapods"
+#brew "openjdk" # This installs Java
+#brew "cocoapods"
 brew "esptool"
 brew "wget"
 brew "jq"
@@ -16,7 +16,7 @@ brew "dockutil"
 brew "iproute2mac"
 brew "telnet"
 brew "opensc"
-brew "node@23"
+#brew "node@23"
 brew "mpv"
 
 # Casks (GUI applications)
@@ -45,6 +45,7 @@ cask "orcaslicer"
 cask "xca"
 cask "veracrypt"
 cask "obs"
+#cask "kicad"
 
 # Optional: Mac App Store applications via mas
 # Uncomment the following lines if you want to include them
