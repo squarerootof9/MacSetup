@@ -282,6 +282,10 @@ install_java() {
     echo ""
     echo "Java configuration finished."
     echo ""
+
+    # Run pod setup for CocoaPods
+    echo "Setting up CocoaPods..."
+    pod setup
     
 }
 
@@ -296,10 +300,7 @@ install_apps() {
         echo "Brewfile not found in $SCRIPT_DIR."
         exit 1
     fi
-    
-    # Run pod setup for CocoaPods
-    echo "Setting up CocoaPods..."
-    pod setup
+
     
 }
 
