@@ -98,9 +98,10 @@ When run, the script presents the following:
 6) Configure System
 7) Configure Dock
 --------------------------------------------
-8) Setup SSH Server
-9) Exit
-Please select an option [1-9]:
+8) Setup Remote Login (SSH)
+9) Setup Firewall
+10) Exit
+Please select an option [1-10]:
 ```
 
 Each section can be run independently, allowing for modular and repeatable setup processes.
