@@ -10,8 +10,8 @@
 set -euo pipefail
 
 # Log output to a file
-exec > >(tee -i setup.log)
-exec 2>&1
+# exec > >(tee -i setup.log)
+# exec 2>&1
 
 OS_VERSION=$(sw_vers -productVersion)
 echo "Running on macOS $OS_VERSION"
@@ -31,7 +31,7 @@ pause() {
 	read -n1 -rsp $'Press any key to continue...\n'
 }
 
-configure_finder() {
+setup_finder() {
 
 	# Show all files in Finder
 	defaults write com.apple.finder AppleShowAllFiles -bool true
@@ -89,7 +89,7 @@ configure_finder() {
 
 }
 
-configure_system() {
+setup_system() {
 
 	# Enable spring loading for directories
 	defaults write NSGlobalDomain com.apple.springing.enabled -bool true
@@ -139,7 +139,7 @@ configure_system() {
 
 }
 
-configure_dock() {
+setup_dock() {
 
 	# Install dockutil if not already installed
 	if ! command -v dockutil &>/dev/null; then
@@ -456,6 +456,206 @@ pf_disable() {
 	sudo pfctl -d >/dev/null 2>&1 || true
 }
 
+####################
+## DNS ###########
+##################
+
+install_cloudflare_dns() {
+
+	brew install cloudflared
+
+	##Needed?
+	sudo mkdir -p /usr/local/etc/cloudflared
+
+	sudo tee /usr/local/etc/cloudflared/config.yml >/dev/null <<EOF
+logDirectory: /var/log/cloudflared
+
+proxy-dns: true
+proxy-dns-address: 127.0.0.1
+proxy-dns-port: 53
+
+proxy-dns-upstream:
+  - https://1.1.1.1/dns-query
+  - https://1.0.0.1/dns-query
+  - https://dns.quad9.net/dns-query
+EOF
+	##END Needed?
+
+	#
+	sudo tee /Library/LaunchDaemons/com.mac.cloudflared.dns.plist >/dev/null <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" 
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.mac.cloudflared.dns</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/usr/local/opt/cloudflared/bin/cloudflared</string>
+      <string>--config</string>
+      <string>/usr/local/etc/cloudflared/config.yml</string>
+      <string>proxy-dns</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/usr/local/var/log/cloudflared.plist.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/usr/local/var/log/cloudflared.plist.log</string>
+  </dict>
+</plist>
+PLIST
+
+	sudo chown root:wheel /Library/LaunchDaemons/com.mac.cloudflared.dns.plist
+	sudo chmod 644 /Library/LaunchDaemons/com.mac.cloudflared.dns.plist
+
+	# Nicely ensure the LaunchDaemon is loaded
+	if sudo launchctl list | grep 'cloudflared.dns'; then
+		echo "cloudflared LaunchDaemon already loaded."
+	else
+		echo "Loading cloudflared LaunchDaemon..."
+		#sudo launchctl load /Library/LaunchDaemons/com.mac.cloudflared.dns.plist
+		sudo launchctl bootout system /Library/LaunchDaemons/com.mac.cloudflared.dns.plist 2>/dev/null || true
+		sudo launchctl bootstrap system /Library/LaunchDaemons/com.mac.cloudflared.dns.plist
+	fi
+
+}
+
+set_all_dns_to_localhost() {
+
+	# set_all_dns_to_localhost.sh
+	# Set DNS for all enabled macOS network services to 127.0.0.1
+
+	DNS_IP="127.0.0.1"
+
+	echo "Setting DNS for all enabled network services to ${DNS_IP} ..."
+	echo
+
+	# Read network services and loop over them
+	networksetup -listallnetworkservices | while IFS= read -r service; do
+		# Skip header line
+		[[ "$service" == "An asterisk"* ]] && continue
+		# Skip blank lines
+		[[ -z "$service" ]] && continue
+
+		# Disabled services start with '*'
+		if [[ "$service" == \** ]]; then
+			echo "Skipping disabled service: ${service#\* }"
+			continue
+		fi
+
+		echo "Configuring DNS for: ${service}"
+		networksetup -setdnsservers "${service}" "${DNS_IP}"
+	done
+
+	echo
+	echo "Finished"
+	echo
+	echo "Current DNS per service:"
+	networksetup -listallnetworkservices | while IFS= read -r service; do
+		[[ "$service" == "An asterisk"* ]] && continue
+		[[ -z "$service" ]] && continue
+		[[ "$service" == \** ]] && continue
+		echo "${service}:"
+		networksetup -getdnsservers "${service}"
+	done
+
+}
+
+remove_cloudflare_dns() {
+
+	sudo launchctl bootout system /Library/LaunchDaemons/com.mac.cloudflared.dns.plist 2>/dev/null ||
+		sudo launchctl unload /Library/LaunchDaemons/com.mac.cloudflared.dns.plist 2>/dev/null
+
+	sudo rm /Library/LaunchDaemons/com.mac.cloudflared.dns.plist
+
+	sudo rm -rf /usr/local/etc/cloudflared
+	sudo rm -f /usr/local/var/log/cloudflared.plist.log
+	# Read network services and loop over them
+	networksetup -listallnetworkservices | while IFS= read -r service; do
+		# Skip header line
+		[[ "$service" == "An asterisk"* ]] && continue
+		# Skip blank lines
+		[[ -z "$service" ]] && continue
+
+		# Disabled services start with '*'
+		if [[ "$service" == \** ]]; then
+			echo "Skipping disabled service: ${service#\* }"
+			continue
+		fi
+
+		echo "Configuring DNS for: ${service}"
+		networksetup -setdnsservers "${service}" empty
+	done
+	echo
+	echo "Removing Cloudflare DNS..."
+	echo
+	brew remove cloudflared
+
+}
+
+dns_menu() {
+
+	while true; do
+
+		clear
+		echo $hr_line
+		echo "🌐 Cloudflare DoH DNS Menu 🌐"
+		echo $hr_line
+		echo "1) Add Cloudflare DoH DNS"
+		echo "2) Remove Cloudflare DoH DNS"
+		echo "3) 🔙 Back to Main Menu"
+		echo ""
+		read -p "Enter your choice: " dns_choice
+
+		case "$dns_choice" in
+		1)
+			echo
+			echo "Installing Cloudflare DoH DNS..."
+			echo
+
+			if ! command -v brew &>/dev/null; then
+				install_homebrew
+			fi
+
+			install_cloudflare_dns
+			
+			echo
+			echo "Setting DNS servers to localhost..."
+			echo
+			set_all_dns_to_localhost
+			echo
+			echo "Cloudflare DoH DNS is now enabled. You can check the status with 'launchctl list'."
+			echo
+			echo "✅ You can verify your encrypted DNS here: https://one.one.one.one/help/"
+			echo
+			sudo launchctl list | grep cloudflared
+			;;
+		2)
+			remove_cloudflare_dns
+			echo
+			echo "✅ You can verify your standard DNS here: https://one.one.one.one/help/"
+			echo
+			;;
+		3)
+			main_menu
+			;;
+		*)
+			echo "Invalid option. Please try again."
+			;;
+		esac
+		pause
+	done
+}
+
 ################################################################################
 ######       MENUs
 ################################################################################
@@ -481,6 +681,7 @@ remote_menu() {
 		echo $hr_line
 		echo "🧱 Remote Login (SSH) Menu 🧱"
 		echo $hr_line
+		echo "*Terminal requires Full Disk Access"
 		echo "1) 🔒 Enable Remote Login (SSH)"
 		echo "2) 🔓 Disable Remote Login (SSH)"
 		echo $hr_line
@@ -488,6 +689,7 @@ remote_menu() {
 		echo $hr_line
 		echo "4) Toggle Remote Login (SSH)"
 		echo "5) 🔙 Back to Main Menu"
+		echo ""
 		read -rp "Please select an option [1-5]: " remote_choice
 
 		case "$remote_choice" in
@@ -513,7 +715,7 @@ remote_menu() {
 				echo "🟢 Remote Login enabled."
 			fi
 			;;
-					5 | exit)
+		5 | exit)
 			echo "Exiting."
 			main_menu
 			;;
@@ -552,7 +754,7 @@ firewall_menu() {
 
 		clear
 		echo $hr_line
-		echo "🧱 Firewall Menu 🧱"
+		echo "🧱 Firewall / Packet Filtering Menu 🧱"
 		echo $hr_line
 		echo "1) 🔒 Enable Firewall"
 		echo "2) 🔓 Disable Firewall"
@@ -565,6 +767,7 @@ firewall_menu() {
 		echo "📋 Packet Filtering status: ${pf_icon} (${pf_state:-unknown})"
 		echo $hr_line
 		echo "7) 🔙 Back to Main Menu"
+		echo ""
 		read -rp "Please select an option [1-7]: " fw_choice
 
 		# Toggle macOS Application Firewall
@@ -616,16 +819,19 @@ main_menu() {
 		echo "2) Homebrew Applications"
 		echo $hr_line
 		echo "3) Install Java/Cocoapods"
-		echo "4) Add Node.js®"
+		echo "4) Install Node.js®"
 		echo $hr_line
-		echo "5) Configure Finder"
-		echo "6) Configure System"
-		echo "7) Configure Dock"
+		echo "5) Setup Finder"
+		echo "6) Setup System"
+		echo "7) Setup Dock"
 		echo $hr_line
-		echo "8) Setup Remote Login (SSH)"
-		echo "9) Setup Firewall"
-		echo "10) Exit"
-		read -rp "Please select an option [1-10]: " choice
+		echo "8) Manage Remote Login (SSH)"
+		echo "9) 🧱 Manage Firewall / Packet Filtering"
+		echo "10) 🌐 Manage DoH DNS"
+		echo $hr_line
+		echo "11) Exit"
+		echo ""
+		read -rp "Please select an option [1-11]: " choice
 		case "$choice" in
 		1)
 			install_homebrew
@@ -633,7 +839,11 @@ main_menu() {
 		2)
 			# Install Homebrew and applications
 
-			install_homebrew
+			# Install Homebrew if not already installed
+			if ! command -v brew &>/dev/null; then
+				install_homebrew
+			fi
+
 			install_apps
 
 			echo "Installed applications:"
@@ -648,15 +858,15 @@ main_menu() {
 			install_nodejs
 			;;
 		5)
-			configure_finder
+			setup_finder
 			echo "Finder configuration finished."
 			;;
 		6)
-			configure_system
+			setup_system
 			echo "System configuration finished."
 			;;
 		7)
-			configure_dock
+			setup_dock
 			echo "Dock configuration finished."
 			;;
 		8)
@@ -669,6 +879,10 @@ main_menu() {
 			echo "Firewall setup finished."
 			;;
 		10)
+			dns_menu
+			echo "DoH DNS setup finished."
+			;;
+		11)
 			echo "Exiting."
 			exit 0
 			;;
