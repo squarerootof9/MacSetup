@@ -92,16 +92,19 @@ When run, the script presents the following:
 2) Homebrew Applications
 --------------------------------------------
 3) Install Java/Cocoapods
-4) Add Node.js®
+4) Install Node.js®
 --------------------------------------------
-5) Configure Finder
-6) Configure System
-7) Configure Dock
+5) Setup Finder
+6) Setup System
+7) Setup Dock
 --------------------------------------------
-8) Setup Remote Login (SSH)
-9) Setup Firewall
-10) Exit
-Please select an option [1-10]:
+8) Manage Remote Login (SSH)
+9) 🧱 Manage Firewall / Packet Filtering
+10) 🌐 Manage DoH DNS
+--------------------------------------------
+11) Exit
+
+Please select an option [1-11]:
 ```
 
 Each section can be run independently, allowing for modular and repeatable setup processes.
