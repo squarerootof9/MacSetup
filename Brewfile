@@ -18,6 +18,9 @@ brew "telnet"
 brew "opensc"
 #brew "node@23"
 brew "mpv"
+brew "nano" # no more fake pico cosplay
+brew "btop"
+brew "shfmt"
 
 # Casks (GUI applications)
 cask "vlc"
