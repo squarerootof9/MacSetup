@@ -217,6 +217,31 @@ install_homebrew() {
 
 }
 
+install_cask() {
+	local cask="${1:-}"
+
+	if [[ -z "$cask" ]]; then
+		echo "✗ install_cask: missing cask name"
+		return 1
+	fi
+
+	if ! command -v brew >/dev/null 2>&1; then
+		install_homebrew
+	fi
+
+	echo "➜ Installing (${cask})"
+
+	if brew list --cask "$cask" >/dev/null 2>&1; then
+		echo "✓ Already installed (${cask})."
+		return 0
+	fi
+
+	if ! brew install --cask --force "$cask"; then
+		echo "✗ Failed to install (${cask})"
+		return 1
+	fi
+}
+
 install_java() {
 
 	echo "Installing Java..."
@@ -359,7 +384,31 @@ install_nodejs() {
 	echo "Installation of Node.js complete..."
 }
 
-pf_enable() {
+install_powershell() {
+
+	if command -v pwsh >/dev/null 2>&1; then
+		echo "Powershell already installed."
+		return 0
+	fi
+
+	cd ~/Downloads
+
+	ARCH="$(uname -m)"
+	if [ "$ARCH" = "arm64" ]; then
+		PKG="powershell-7.5.4-osx-arm64.pkg"
+	else
+		PKG="powershell-7.5.4-osx-x64.pkg"
+	fi
+
+	curl -L -o "$PKG" "https://github.com/PowerShell/PowerShell/releases/download/v7.5.4/$PKG"
+
+	sudo installer -pkg "$PKG" -target /
+
+	cd ${SCRIPT_DIR}
+
+}
+
+enable_pf() {
 
 	IF_OVERRIDE="${1:-}"
 	if [[ "$IF_OVERRIDE" == "--if" ]]; then
@@ -452,15 +501,15 @@ EOF
 	sudo pfctl -sr | head -n 40
 }
 
-pf_disable() {
+disable_pf() {
 	sudo pfctl -d >/dev/null 2>&1 || true
 }
 
-####################
-## DNS ###########
+##################
+###### DNS #######
 ##################
 
-install_cloudflare_dns() {
+enable_cloudflare_dns() {
 
 	brew install cloudflared
 
@@ -529,9 +578,8 @@ PLIST
 
 }
 
-set_all_dns_to_localhost() {
+enable_cloudflare_dns_local() {
 
-	# set_all_dns_to_localhost.sh
 	# Set DNS for all enabled macOS network services to 127.0.0.1
 
 	DNS_IP="127.0.0.1"
@@ -570,7 +618,7 @@ set_all_dns_to_localhost() {
 
 }
 
-remove_cloudflare_dns() {
+disable_cloudflare_dns() {
 
 	sudo launchctl bootout system /Library/LaunchDaemons/com.mac.cloudflared.dns.plist 2>/dev/null ||
 		sudo launchctl unload /Library/LaunchDaemons/com.mac.cloudflared.dns.plist 2>/dev/null
@@ -602,7 +650,7 @@ remove_cloudflare_dns() {
 
 }
 
-dns_menu() {
+menu_dns() {
 
 	while true; do
 
@@ -626,12 +674,12 @@ dns_menu() {
 				install_homebrew
 			fi
 
-			install_cloudflare_dns
-			
+			enable_cloudflare_dns
+
 			echo
 			echo "Setting DNS servers to localhost..."
 			echo
-			set_all_dns_to_localhost
+			enable_cloudflare_dns_local
 			echo
 			echo "Cloudflare DoH DNS is now enabled. You can check the status with 'launchctl list'."
 			echo
@@ -640,13 +688,13 @@ dns_menu() {
 			sudo launchctl list | grep cloudflared
 			;;
 		2)
-			remove_cloudflare_dns
+			disable_cloudflare_dns
 			echo
 			echo "✅ You can verify your standard DNS here: https://one.one.one.one/help/"
 			echo
 			;;
 		3)
-			main_menu
+			menu_main
 			;;
 		*)
 			echo "Invalid option. Please try again."
@@ -661,7 +709,7 @@ dns_menu() {
 ################################################################################
 hr_line="--------------------------------------------"
 
-remote_menu() {
+menu_remote() {
 
 	while true; do
 
@@ -717,7 +765,7 @@ remote_menu() {
 			;;
 		5 | exit)
 			echo "Exiting."
-			main_menu
+			menu_main
 			;;
 		*)
 			echo "Usage: {on|off|toggle|status}"
@@ -727,7 +775,7 @@ remote_menu() {
 	done
 }
 
-firewall_menu() {
+menu_firewall() {
 
 	while true; do
 
@@ -787,14 +835,14 @@ firewall_menu() {
 			/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
 			;;
 		4 | pf)
-			pf_enable
+			enable_pf
 			;;
 		5 | pfdisable)
-			pf_disable
+			disable_pf
 			;;
 		7 | exit)
 			echo "Exiting."
-			main_menu
+			menu_main
 			;;
 		*)
 			echo "Invalid option. Please try again."
@@ -807,7 +855,7 @@ firewall_menu() {
 }
 
 # Main Menu
-main_menu() {
+menu_main() {
 
 	while true; do
 
@@ -818,20 +866,21 @@ main_menu() {
 		echo "1) 🍺 Install Homebrew"
 		echo "2) Homebrew Applications"
 		echo $hr_line
-		echo "3) Install Java/Cocoapods"
-		echo "4) Install Node.js®"
+		echo "3) Visual Studio Code"
+		echo "4) Install Java/Cocoapods"
+		echo "5) Install Node.js®"
 		echo $hr_line
-		echo "5) Setup Finder"
-		echo "6) Setup System"
-		echo "7) Setup Dock"
+		echo "6) Setup Finder"
+		echo "7) Setup System"
+		echo "8) Setup Dock"
 		echo $hr_line
-		echo "8) Manage Remote Login (SSH)"
-		echo "9) 🧱 Manage Firewall / Packet Filtering"
-		echo "10) 🌐 Manage DoH DNS"
+		echo "9) Manage Remote Login (SSH)"
+		echo "10) 🧱 Manage Firewall / Packet Filtering"
+		echo "11) 🌐 Manage DoH DNS"
 		echo $hr_line
-		echo "11) Exit"
+		echo "12) Exit"
 		echo ""
-		read -rp "Please select an option [1-11]: " choice
+		read -rp "Please select an option [1-12]: " choice
 		case "$choice" in
 		1)
 			install_homebrew
@@ -852,37 +901,60 @@ main_menu() {
 
 			;;
 		3)
-			install_java
+			#brew install --cask vscodium
+
+			# Install via Homebrew
+			#brew install --cask visual-studio-code
+
+			install_cask visual-studio-code
+
+			if [ ! -f "/usr/local/bin/code" ]; then
+				sudo ln -sfn "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" /usr/local/bin/code >/dev/null 2>&1
+			fi
+
+			brew install shfmt
+			# Install extensions
+			while IFS= read -r ext; do
+				[[ -z "$ext" ]] && continue
+				[[ "$ext" =~ ^# ]] && continue
+				code --install-extension "$ext"
+			done <"$SCRIPT_DIR/vscode-extensions.txt"
+
+			install_powershell
+
 			;;
 		4)
-			install_nodejs
+			install_java
 			;;
 		5)
+			install_nodejs
+			;;
+		6)
 			setup_finder
 			echo "Finder configuration finished."
 			;;
-		6)
+		7)
 			setup_system
 			echo "System configuration finished."
 			;;
-		7)
+		8)
 			setup_dock
 			echo "Dock configuration finished."
 			;;
-		8)
-			remote_menu
+		9)
+			menu_remote
 			#sudo systemsetup -getremotelogin
 			#ifconfig | grep inet
 			;;
-		9)
-			firewall_menu
+		10)
+			menu_firewall
 			echo "Firewall setup finished."
 			;;
-		10)
-			dns_menu
+		11)
+			menu_dns
 			echo "DoH DNS setup finished."
 			;;
-		11)
+		12)
 			echo "Exiting."
 			exit 0
 			;;
@@ -894,4 +966,4 @@ main_menu() {
 	done
 }
 
-main_menu
+menu_main
