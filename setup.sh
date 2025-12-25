@@ -242,6 +242,32 @@ install_cask() {
 	fi
 }
 
+install_formulae() {
+
+	local formulae="${1:-}"
+
+	if [[ -z "$formulae" ]]; then
+		echo "✗ install_formulae: missing formulae name"
+		return 1
+	fi
+
+	if ! command -v brew >/dev/null 2>&1; then
+		install_homebrew
+	fi
+
+	echo "➜ Installing (${formulae})"
+
+	if brew list "$formulae" >/dev/null 2>&1; then
+		echo "✓ Already installed (${formulae})."
+		return 0
+	fi
+
+	if ! brew install --force "$formulae"; then
+		echo "✗ Failed to install (${formulae})"
+		return 1
+	fi
+}
+
 install_java() {
 
 	echo "Installing Java..."
@@ -707,7 +733,8 @@ menu_dns() {
 ################################################################################
 ######       MENUs
 ################################################################################
-hr_line="--------------------------------------------"
+
+hr_line="────────────────────────────────────────────"
 
 menu_remote() {
 
@@ -854,33 +881,118 @@ menu_firewall() {
 
 }
 
+menu_dev() {
+
+	while true; do
+
+		clear
+		echo $hr_line
+		echo "💻 Development Menu 💻"
+		echo $hr_line
+		echo "1) Development Tools (includes kdoctor)"
+		echo "2) Android Studio"
+		echo "3) Visual Studio Code"
+		echo "4) IntelliJ IDEA"
+		echo "5) JetBrains WebStorm"
+		echo "6) Arduino"
+		echo "7) Glade (GTK+ UI Designer)"
+		echo "8) 🔙 Back to Main Menu"
+		echo ""
+		read -rp "Please select an option [1-8]: " remote_choice
+
+		case "$remote_choice" in
+		1)
+			install_formulae "wget"
+			install_formulae "telnet"
+			install_formulae "kdoctor"
+			;;
+		2)
+			install_cask "android-studio"
+			;;
+		3)
+			#brew install --cask vscodium
+
+			# Install via Homebrew
+			#brew install --cask visual-studio-code
+
+			install_cask "visual-studio-code"
+
+			if [ ! -f "/usr/local/bin/code" ]; then
+				sudo ln -sfn "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" /usr/local/bin/code >/dev/null 2>&1
+			fi
+
+			install_formulae shfmt
+
+			brew install shfmt
+			# Install extensions
+			while IFS= read -r ext; do
+				[[ -z "$ext" ]] && continue
+				[[ "$ext" =~ ^# ]] && continue
+				code --install-extension "$ext"
+			done <"$SCRIPT_DIR/vscode-extensions.txt"
+
+			install_powershell
+
+			;;
+		4)
+			install_cask "intellij-idea"
+			;;
+		5)
+			install_cask "webstorm"
+			;;
+		6)
+			install_cask "arduino-ide"
+			;;
+		7)
+			install_formulae "glade"
+			;;
+		8 | exit)
+			echo "Exiting."
+			menu_main
+			;;
+		*)
+			echo ""
+			;;
+		esac
+		pause
+	done
+}
+
 # Main Menu
 menu_main() {
 
 	while true; do
 
 		clear
+		#echo $hr_line
+		echo "           🍎 Mac Setup Menu 🍎"
 		echo $hr_line
-		echo "🍎 Mac Setup Menu 🍎"
+		echo "1) 🍺 Install/Update Homebrew"
+		echo "2) Install Homebrew Applications"
+		echo "3) Install btop"
+		echo "4) Install Veracrypt"
 		echo $hr_line
-		echo "1) 🍺 Install Homebrew"
-		echo "2) Homebrew Applications"
+		echo "5) 🛠️ Development Applications"
+		echo "6) Install Java/Cocoapods"
+		echo "7) Install Node.js®"
 		echo $hr_line
-		echo "3) Visual Studio Code"
-		echo "4) Install Java/Cocoapods"
-		echo "5) Install Node.js®"
+		echo "8) Setup Finder"
+		echo "9) Setup System"
+		echo "10) Setup Dock"
 		echo $hr_line
-		echo "6) Setup Finder"
-		echo "7) Setup System"
-		echo "8) Setup Dock"
+		echo "11) Manage Remote Login (SSH)"
+		echo "12) 🧱 Manage Firewall / Packet Filtering"
+		echo "13) 🌐 Manage DoH DNS"
 		echo $hr_line
-		echo "9) Manage Remote Login (SSH)"
-		echo "10) 🧱 Manage Firewall / Packet Filtering"
-		echo "11) 🌐 Manage DoH DNS"
+		echo "14) 📺 Install OpenShot"
+		echo "15) 🖼️ Install Blender/Gimp/Inkscape"
+		echo "16) Install Freecad"
+		echo "17) Install OrcaSlicer"
+		echo "18) Install RP-Imager"
 		echo $hr_line
-		echo "12) Exit"
+		echo "19) Exit"
 		echo ""
-		read -rp "Please select an option [1-12]: " choice
+		read -rp "Please select an option [1-19]: " choice
 		case "$choice" in
 		1)
 			install_homebrew
@@ -901,60 +1013,64 @@ menu_main() {
 
 			;;
 		3)
-			#brew install --cask vscodium
-
-			# Install via Homebrew
-			#brew install --cask visual-studio-code
-
-			install_cask visual-studio-code
-
-			if [ ! -f "/usr/local/bin/code" ]; then
-				sudo ln -sfn "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" /usr/local/bin/code >/dev/null 2>&1
-			fi
-
-			brew install shfmt
-			# Install extensions
-			while IFS= read -r ext; do
-				[[ -z "$ext" ]] && continue
-				[[ "$ext" =~ ^# ]] && continue
-				code --install-extension "$ext"
-			done <"$SCRIPT_DIR/vscode-extensions.txt"
-
-			install_powershell
-
+			install_formulae "btop"
 			;;
 		4)
-			install_java
+			install_cask "veracrypt"
 			;;
 		5)
-			install_nodejs
+			menu_dev
 			;;
 		6)
+			install_java
+			;;
+		7)
+			install_nodejs
+			;;
+		8)
 			setup_finder
 			echo "Finder configuration finished."
 			;;
-		7)
+		9)
 			setup_system
 			echo "System configuration finished."
 			;;
-		8)
+		10)
 			setup_dock
 			echo "Dock configuration finished."
 			;;
-		9)
+		11)
 			menu_remote
 			#sudo systemsetup -getremotelogin
 			#ifconfig | grep inet
 			;;
-		10)
+		12)
 			menu_firewall
 			echo "Firewall setup finished."
 			;;
-		11)
+		13)
 			menu_dns
 			echo "DoH DNS setup finished."
 			;;
-		12)
+		14)
+			install_cask "openshot-video-editor"
+			;;
+		15)
+			install_cask "blender"
+			install_cask "gimp"
+			install_cask "inkscape"
+			install_cask "upscayl"
+			;;
+		16)
+			install_cask "freecad"
+			;;
+		17)
+			install_cask "orcaslicer"
+			;;
+		18)
+			install_cask "raspberry-pi-imager"
+			;;
+		19)
 			echo "Exiting."
 			exit 0
 			;;

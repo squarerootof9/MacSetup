@@ -85,27 +85,34 @@ This project aims to simplify the initial setup of a macOS system by automating 
 When run, the script presents the following:
 
 ```
---------------------------------------------
-🍎 Mac Setup Menu 🍎
---------------------------------------------
-1) 🍺 Install Homebrew
-2) Homebrew Applications
---------------------------------------------
-3) Visual Studio Code
-4) Install Java/Cocoapods
-5) Install Node.js®
---------------------------------------------
-6) Setup Finder
-7) Setup System
-8) Setup Dock
---------------------------------------------
-9) Manage Remote Login (SSH)
-10) 🧱 Manage Firewall / Packet Filtering
-11) 🌐 Manage DoH DNS
---------------------------------------------
-12) Exit
+           🍎 Mac Setup Menu 🍎
+────────────────────────────────────────────
+1) 🍺 Install/Update Homebrew
+2) Install Homebrew Applications
+3) Install btop
+4) Install Veracrypt
+────────────────────────────────────────────
+5) 🛠 Development Applications
+6) Install Java/Cocoapods
+7) Install Node.js®
+────────────────────────────────────────────
+8) Setup Finder
+9) Setup System
+10) Setup Dock
+────────────────────────────────────────────
+11) Manage Remote Login (SSH)
+12) 🧱 Manage Firewall / Packet Filtering
+13) 🌐 Manage DoH DNS
+────────────────────────────────────────────
+14) 📺 Install OpenShot
+15) 🖼 Install Blender/Gimp/Inkscape
+16) Install Freecad
+17) Install OrcaSlicer
+18) Install RP-Imager
+────────────────────────────────────────────
+19) Exit
 
-Please select an option [1-12]: 
+Please select an option [1-19]:
 ```
 
 Each section can be run independently, allowing for modular and repeatable setup processes.
