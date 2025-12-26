@@ -11,21 +11,19 @@ brew "jq"
 brew "dockutil"
 brew "iproute2mac"
 brew "opensc"
-brew "mpv"
 brew "nano" # no more fake pico cosplay
-brew "db-browser-for-sqlite"
 
 # Casks (GUI applications)
 cask "vlc"
 cask "firefox"
-cask "thunderbird"
+#cask "thunderbird"
+cask "mpv"
 cask "iterm2"
 cask "geany"
 cask "audacity"
 cask "transmission"
 cask "xca"
 cask "obs"
-#cask "libreoffice"
 #cask "stellarium"
 #cask "kicad"
 

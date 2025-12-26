@@ -100,19 +100,22 @@ When run, the script presents the following:
 9) Setup System
 10) Setup Dock
 ────────────────────────────────────────────
-11) Manage Remote Login (SSH)
-12) 🧱 Manage Firewall / Packet Filtering
-13) 🌐 Manage DoH DNS
+11) LibreOffice (Office Suite)
+12) DBeaver (Database Manager)
 ────────────────────────────────────────────
-14) 📺 Install OpenShot
-15) 🖼 Install Blender/Gimp/Inkscape
-16) Install Freecad
-17) Install OrcaSlicer
-18) Install RP-Imager
+13) Manage Remote Login (SSH)
+14) 🧱 Manage Firewall / Packet Filtering
+15) 🌐 Manage DoH DNS
 ────────────────────────────────────────────
-19) Exit
+16) 📺 Install OpenShot
+17) 🖼 Install Blender/Gimp/Inkscape
+18) Install Freecad
+19) Install OrcaSlicer
+20) Install RP-Imager
+────────────────────────────────────────────
+21) Exit
 
-Please select an option [1-19]:
+Please select an option [1-21]:
 ```
 
 Each section can be run independently, allowing for modular and repeatable setup processes.

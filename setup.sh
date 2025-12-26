@@ -887,7 +887,7 @@ menu_dev() {
 
 		clear
 		echo $hr_line
-		echo "💻 Development Menu 💻"
+		echo "💻 Development Applications Menu 💻"
 		echo $hr_line
 		echo "1) Development Tools (includes kdoctor)"
 		echo "2) Android Studio"
@@ -980,19 +980,22 @@ menu_main() {
 		echo "9) Setup System"
 		echo "10) Setup Dock"
 		echo $hr_line
-		echo "11) Manage Remote Login (SSH)"
-		echo "12) 🧱 Manage Firewall / Packet Filtering"
-		echo "13) 🌐 Manage DoH DNS"
+		echo "11) LibreOffice (Office Suite)"
+		echo "12) DBeaver (Database Manager)"
 		echo $hr_line
-		echo "14) 📺 Install OpenShot"
-		echo "15) 🖼️ Install Blender/Gimp/Inkscape"
-		echo "16) Install Freecad"
-		echo "17) Install OrcaSlicer"
-		echo "18) Install RP-Imager"
+		echo "13) Manage Remote Login (SSH)"
+		echo "14) 🧱 Manage Firewall / Packet Filtering"
+		echo "15) 🌐 Manage DoH DNS"
 		echo $hr_line
-		echo "19) Exit"
+		echo "16) 📺 Install OpenShot"
+		echo "17) 🖼️ Install Blender/Gimp/Inkscape"
+		echo "18) Install Freecad"
+		echo "19) Install OrcaSlicer"
+		echo "20) Install RP-Imager"
+		echo $hr_line
+		echo "21) Exit"
 		echo ""
-		read -rp "Please select an option [1-19]: " choice
+		read -rp "Please select an option [1-21]: " choice
 		case "$choice" in
 		1)
 			install_homebrew
@@ -1040,37 +1043,43 @@ menu_main() {
 			echo "Dock configuration finished."
 			;;
 		11)
+			install_cask "libreoffice"
+			;;
+		12)
+			install_cask "dbeaver-community"
+			;;
+		13)
 			menu_remote
 			#sudo systemsetup -getremotelogin
 			#ifconfig | grep inet
 			;;
-		12)
+		14)
 			menu_firewall
 			echo "Firewall setup finished."
 			;;
-		13)
+		15)
 			menu_dns
 			echo "DoH DNS setup finished."
 			;;
-		14)
+		16)
 			install_cask "openshot-video-editor"
 			;;
-		15)
+		17)
 			install_cask "blender"
 			install_cask "gimp"
 			install_cask "inkscape"
 			install_cask "upscayl"
 			;;
-		16)
+		18)
 			install_cask "freecad"
 			;;
-		17)
+		19)
 			install_cask "orcaslicer"
 			;;
-		18)
+		20)
 			install_cask "raspberry-pi-imager"
 			;;
-		19)
+		21)
 			echo "Exiting."
 			exit 0
 			;;
