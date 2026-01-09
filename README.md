@@ -85,7 +85,7 @@ This project aims to simplify the initial setup of a macOS system by automating 
 When run, the script presents the following:
 
 ```
-           🍎 Mac Setup Menu 🍎
+             🍎 Mac Setup Menu 🍎
 ────────────────────────────────────────────
 1) 🍺 Install/Update Homebrew
 2) Install Homebrew Applications
@@ -106,16 +106,17 @@ When run, the script presents the following:
 13) Manage Remote Login (SSH)
 14) 🧱 Manage Firewall / Packet Filtering
 15) 🌐 Manage DoH DNS
+16) Manage Wireguard VPN Client
 ────────────────────────────────────────────
-16) 📺 Install OpenShot
-17) 🖼 Install Blender/Gimp/Inkscape
-18) Install Freecad
-19) Install OrcaSlicer
-20) Install RP-Imager
+17) 📺 Install OpenShot
+18) 🖼 Install Blender/Gimp/Inkscape
+19) Install Freecad
+20) Install OrcaSlicer
+21) Install RP-Imager
 ────────────────────────────────────────────
-21) Exit
+22) Exit
 
-Please select an option [1-21]:
+Please select an option [1-22]: 
 ```
 
 Each section can be run independently, allowing for modular and repeatable setup processes.
