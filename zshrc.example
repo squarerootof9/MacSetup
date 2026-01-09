@@ -1,0 +1,300 @@
+# Teach by osmosis: keep tools readable, discoverable, and one command away.
+
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+
+#Linux
+alias lt='ls --human-readable --size -1 -S --classify'
+alias mnt="mount | awk -F' ' '{ printf \"%s\t%s\n\",\$1,\$3; }' | column -t | egrep ^/dev/ | sort"
+#Mac
+#alias lt='du -sh * | sort -h'
+#alias mnt='mount | grep -E ^/dev | column -t'
+
+alias count='find . -type f | wc -l'
+
+alias c='clear'                           # if you want even shorter than cl
+alias q='exit'                            # if you want even shorter than xx
+alias m='btop'                            # m for 'monitor'
+alias s='cd ~/Downloads/MacSetup-main'    # <- quick path to there
+
+# ---- git quick commands ----
+
+# Safe “wrapper” so functions can pass args cleanly
+g() { git "$@"; }
+
+gs() { git status "$@"; } # short status (+ branch)
+ga() {
+	if [[ $# -eq 0 ]]; then
+		git add -A
+	else
+		git add "$@" # ga file1 file2
+	fi
+}
+gaa() { git add -A "$@"; }        # add all changes
+gd() { git diff "$@"; }           # working tree diff
+gds() { git diff --staged "$@"; } # staged diff
+gl() { git log --oneline --decorate --graph --all "$@"; }
+gb() { git branch "$@"; }
+go() { git checkout "$@"; } # or use 'git switch' below
+gpl() { git pull "$@"; }
+gp() {
+	if [[ $# -gt 0 ]]; then
+		git push "$@"
+		return
+	fi
+	local br
+	br="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 1
+	git push -u origin "$br"
+}
+gm() { git merge "$@"; }
+
+# Better commit: gc "message with spaces"
+gc() {
+	if [[ $# -lt 1 ]]; then
+		echo "usage: gc <message>"
+		return 1
+	fi
+	git commit -m "$*"
+}
+
+gcremove() {
+	local branch_name="${1:-main}"
+
+	git show-ref --verify --quiet "refs/heads/$branch_name" || {
+		echo "Branch not found locally: $branch_name" >&2
+		return 1
+	}
+
+	git fetch origin "$branch_name" || return 1
+	git checkout "$branch_name" || return 1
+
+	git branch "backup-${branch_name}-before-rewrite-$(date +%F_%H%M%S)" || return 1
+
+	git reset --hard HEAD~1 || return 1
+	git push --force-with-lease origin "$branch_name"
+}
+
+# Convenience commits
+gca() { git commit --amend "$@"; }       # amend (add -m "msg" if you want)
+gcan() { git commit --amend --no-edit; } # amend without changing message
+
+# Create/switch branches (modern)
+gsw() { git switch "$@"; }     # switch to branch
+gswc() { git switch -c "$@"; } # create + switch
+
+# Fetch + prune stale remotes
+gf() { git fetch --all --prune "$@"; }
+
+# Show last commit
+g1() { git log -1 --stat "$@"; }
+
+# Undo helpers (use with care)
+gunstage() { git restore --staged "$@"; } # unstage paths
+grestore() { git restore "$@"; }          # discard working-tree changes to paths
+
+ghelp() {
+	cat <<'EOF'
+
+Git helpers
+-----------
+
+basics
+  gs                 status
+  ga <paths...>      add paths
+  gaa                add all changes
+  gc <message...>    commit with message (spaces ok)
+  gp [remote branch] push (e.g., gp origin main)
+  gpl [args]         pull
+  gf                 fetch --all --prune
+
+inspect
+  gd [args]          diff
+  gds [args]         diff --staged
+  gl                 pretty log graph
+  g1                 last commit
+
+branches
+  gb [args]          branch
+  go <thing>         checkout (old)
+  gsw <branch>       switch (new)
+  gswc <branch>      create + switch
+
+fixups
+  gca [args]         commit --amend
+  gcan               amend --no-edit
+  gunstage <paths>   unstage
+  grestore <paths>   discard working-tree changes
+
+EOF
+}
+
+########################
+
+# ---- Python venv quick-tools (bash) ----
+
+# python uses the currently activated venv's python
+# operations outside a venv: always use python3
+
+# Show active venv in prompt (clean + unobtrusive)
+if [[ -n "${PS1-}" ]]; then
+	_venv_ps1() {
+		[[ -n "${VIRTUAL_ENV-}" ]] || return 0
+		printf " (%s)" "$(basename "$VIRTUAL_ENV")"
+	}
+	# Adds " (.venvname)" near the end of your prompt if one is active
+	#PS1="${PS1}\$(_venv_ps1)"
+fi
+
+# vnew [python_cmd] [venv_dir]
+# Examples:
+#   vnew                -> python3 -m venv .venv + upgrades pip/setuptools/wheel
+#   vnew python3.12     -> make .venv using python3.12
+#   vnew python3 .venv2 -> make .venv2 using python3
+vnew() {
+	local py="${1:-python3}"
+	local dir="${2:-.venv}"
+
+	if [[ -d "$dir" ]]; then
+		echo "✓ venv exists: $dir"
+	else
+		"$py" -m venv "$dir" || {
+			echo "✗ venv creation failed."
+			echo "  On Ubuntu, you may need: sudo apt install python3-venv (or ${py}-venv)"
+			return 1
+		}
+		echo "✓ created: $dir"
+	fi
+
+	# Activate + basic upgrades
+	# shellcheck disable=SC1090
+	source "$dir/bin/activate" || return 1
+	python -m pip install -U pip setuptools wheel >/dev/null
+	echo "✓ activated: $dir"
+}
+
+# von [venv_dir]  -> activate (default: .venv)
+von() {
+	local dir="${1:-.venv}"
+	# shellcheck disable=SC1090
+	[[ -f "$dir/bin/activate" ]] && source "$dir/bin/activate" && echo "✓ activated: $dir" ||
+		{
+			echo "✗ no venv at: $dir (use: vnew)"
+			return 1
+		}
+}
+
+# voff -> deactivate safely
+voff() { type deactivate >/dev/null 2>&1 && deactivate && echo "✓ deactivated" || true; }
+
+# vpip ... -> always use the right pip
+vpip() { python -m pip "$@"; }
+
+# vreq [file] -> install requirements (default: requirements.txt)
+vreq() {
+	local f="${1:-requirements.txt}"
+	[[ -f "$f" ]] || {
+		echo "✗ missing: $f"
+		return 1
+	}
+	python -m pip install -r "$f"
+}
+
+# Optional: auto-activate .venv when you cd into a folder that has it
+# Enable by uncommenting the line at the bottom.
+_auto_venv() {
+	# If already in a venv, do nothing unless you left its folder tree
+	if [[ -n "${VIRTUAL_ENV-}" ]]; then
+		# If cwd is no longer under the venv's parent, auto-deactivate
+		local vparent
+		vparent="$(dirname "$VIRTUAL_ENV")"
+		[[ "$PWD" == "$vparent"* ]] || voff
+		return 0
+	fi
+
+	# Auto-activate local .venv if present
+	[[ -f ".venv/bin/activate" ]] && von .venv >/dev/null 2>&1
+}
+# PROMPT_COMMAND="_auto_venv${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+
+# ---- venv/pip helpers ----
+
+# Upgrade the core packaging toolchain in the *current* Python/venv
+vset() {
+	python -m pip install -U pip setuptools wheel
+}
+
+# Purge pip's download/build cache (user cache; affects all venvs for your user)
+vcp() {
+	python -m pip cache purge
+}
+
+# List installed packages (pass extra args if you want, e.g. --format=columns)
+vlist() {
+	python -m pip list "$@"
+}
+
+# Show outdated packages
+vout() {
+	python -m pip list --outdated
+}
+
+# Basic dependency health check (very handy when something feels "off")
+vcheck() {
+	python -m pip check
+}
+
+# Freeze current env to a requirements file (default: requirements.txt)
+vfreeze() {
+	local f="${1:-requirements.txt}"
+	python -m pip freeze >"$f"
+	echo "✓ wrote $f"
+}
+
+# Upgrade *all* outdated packages in the current env
+vupall() {
+	python -m pip list --outdated --format=freeze |
+		cut -d= -f1 |
+		xargs -r python -m pip install -U
+}
+
+# Quick “what am I using right now?”
+vinfo() {
+	echo "python: $(command -v python)"
+	python --version
+	python -m pip --version
+	[[ -n "${VIRTUAL_ENV-}" ]] && echo "venv:   $VIRTUAL_ENV" || echo "venv:   (none)"
+}
+
+vhelp() {
+	cat <<'EOF'
+
+Python / venv helpers
+---------------------
+
+venv
+  vnew [python] [dir]   Create + activate venv (default: python3 .venv)
+  von  [dir]            Activate venv (default: .venv)
+  voff                  Deactivate current venv
+
+pip (always targets the *current* python/venv)
+  vset                  Upgrade pip + setuptools + wheel
+  vlist [args...]        List installed packages (passes args to: pip list)
+  vout                  Show outdated packages
+  vcheck                Dependency sanity check (pip check)
+  vreq  [file]           Install requirements (default: requirements.txt)
+  vfreeze [file]         Write requirements (default: requirements.txt)
+  vupall                Upgrade all outdated packages in this env
+  vcp                   Purge pip cache (user-wide)
+  vinfo                 Show which python/pip/venv you're using
+
+EOF
+}
+
+t() {
+	ollama run gpt-oss:20b "${*:-hello}"
+}

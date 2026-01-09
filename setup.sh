@@ -981,11 +981,11 @@ menu_dev() {
 		echo "5) JetBrains WebStorm"
 		echo "6) Arduino"
 		echo "7) Glade (GTK+ UI Designer)"
-
-		echo "8) Setup GIT ssh signing/authentication keys"
-		echo "9) 🔙 Back to Main Menu"
+		echo "8) Deploy zsh shell tools → ~/.zshrc"
+		echo "9) Setup GIT ssh signing/authentication keys"
+		echo "10) 🔙 Back to Main Menu"
 		echo ""
-		read -rp "Please select an option [1-9]: " remote_choice
+		read -rp "Please select an option [1-10]: " remote_choice
 
 		case "$remote_choice" in
 		1)
@@ -1034,9 +1034,13 @@ menu_dev() {
 			install_formulae glade
 			;;
 		8)
+			# Copy examples only if the target file doesn't exist yet
+			[[ -f "$HOME/.zshrc" ]] || cp -n "./zshrc.example" "$HOME/.zshrc"
+			;;
+		9)
 			setup_git_ssh_signingw
 			;;
-		9 | exit)
+		10 | exit)
 			echo "Exiting."
 			menu_main
 			;;
