@@ -767,7 +767,7 @@ menu_dns() {
 
 		clear
 		echo $hr_line
-		echo "🌐 Cloudflare DoH DNS Menu 🌐"
+		echo "             🌐 Cloudflare DoH DNS Menu 🌐"
 		echo $hr_line
 		echo "1) Add Cloudflare DoH DNS"
 		echo "2) Remove Cloudflare DoH DNS"
@@ -815,11 +815,270 @@ menu_dns() {
 	done
 }
 
+#########
+## VPN ##
+#########
+
+# --- WireGuard helpers (wg-quick + Ubuntu AppArmor workaround) ----------------
+
+_vpn_need_name() {
+	local name="$1"
+	if [[ -z "$name" ]]; then
+		echo "usage: $2 <name>"
+		return 2
+	fi
+	# basic sanity: keep interface names simple
+	if [[ ! "$name" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+		echo "invalid name: '$name' (use letters/numbers/._-)"
+		return 2
+	fi
+	return 0
+}
+
+vpn_setup() {
+
+	local dir_prefix=""
+
+	if [[ "$(uname -s)" == "Darwin" ]]; then
+		local dir_prefix="/usr/local"
+	fi
+
+	local name="$1"
+	local src="${2:-${name}.conf}"
+	local dst="${dir_prefix}/etc/wireguard/${name}.conf"
+
+	_vpn_need_name "$name" "vpn_setup" || return $?
+
+	if [[ ! -f "$src" ]]; then
+		echo "✗ missing config: $src"
+		return 2
+	fi
+
+	echo "▶ Setting up WireGuard profile: $name"
+	echo "  - source: $src"
+	echo "  - target: $dst"
+
+	# REMOVE FOR MAC
+	# START AppArmor workaround for wg-quick + uutils coreutils 'stat' mount table reads START
+
+	#local aa_file="/etc/apparmor.d/local/wg-quick"
+	#local aa_tmp
+	#aa_tmp="$(mktemp)"
+
+	#cat >"$aa_tmp" <<'EOF'
+	## workaround for https://bugs.launchpad.net/ubuntu/+source/apparmor/+bug/2127851
+	#file r @{PROC}/@{pid}/mounts,
+	#file r @{PROC}/@{pid}/mountinfo,
+	#EOF
+
+	#sudo mkdir -p /etc/apparmor.d/local
+
+	#if ! sudo test -f "$aa_file" || ! sudo cmp -s "$aa_tmp" "$aa_file"; then
+	#echo "  - applying AppArmor workaround (wg-quick/stat)"
+	#sudo tee "$aa_file" >/dev/null <"$aa_tmp"
+	#sudo systemctl reload apparmor
+	#else
+	#echo "  - AppArmor workaround already present"
+	#fi
+
+	#rm -f "$aa_tmp"
+
+	# END AppArmor workaround END
+
+	# Install config securely
+	sudo mkdir -p "${dir_prefix}/etc/wireguard"
+	sudo chmod 700 "${dir_prefix}/etc/wireguard"
+
+	if sudo test -f "$dst" && sudo cmp -s "$src" "$dst"; then
+		echo "  - config already installed (no change)"
+	else
+		if [[ "$(uname -s)" == "Darwin" ]]; then
+			echo "  - installing config (root:wheel, 600)"
+			sudo install -o root -g wheel -m 600 "$src" "$dst"
+		else
+			echo "  - installing config (root:root, 600)"
+			sudo install -o root -g root -m 600 "$src" "$dst"
+		fi
+	fi
+
+	echo "✓ Setup complete for: $name"
+}
+
+vpn_up() {
+	local name="$1"
+	_vpn_need_name "$name" "vpn_up" || return $?
+
+	if ip link show dev "$name" >/dev/null 2>&1; then
+		echo "✓ $name is already up"
+		return 0
+	fi
+
+	echo "▶ Bringing up: $name"
+	sudo wg-quick up "$name"
+}
+
+vpn_down() {
+	local name="$1"
+	_vpn_need_name "$name" "vpn_down" || return $?
+
+	echo "▶ Bringing down: $name"
+
+	local out rc
+	out="$(sudo wg-quick down "$name" 2>&1)"
+	rc=$?
+
+	# Graceful no-op cases (already down / doesn't exist / nothing to do)
+	if [[ $rc -eq 0 ]] ||
+		grep -qiE 'does not exist|not found|Cannot find device|No such device|Unknown device|is not a WireGuard interface' <<<"$out"; then
+		echo "✓ Down: $name"
+		return 0
+	fi
+
+	# Unexpected error: show output and return non-zero
+	echo "$out" >&2
+	echo "✗ Failed to bring down: $name" >&2
+	return $rc
+}
+
+# Config dir: keep your manual toggle if you want, but put it in ONE place.
+# Linux: /etc/wireguard
+# macOS (brew): /usr/local/etc/wireguard   (or /opt/homebrew/etc/wireguard on Apple Silicon)
+WG_CONF_DIR="${WG_CONF_DIR:-/usr/local/etc/wireguard}"
+
+_vpn_find_iface() {
+	local name="$1"
+	local conf="${WG_CONF_DIR}/${name}.conf"
+
+	# 1) Linux/common case: interface name == profile name
+	if sudo wg show "$name" >/dev/null 2>&1; then
+		echo "$name"
+		return 0
+	fi
+
+	# 2) macOS case: interface is utunX. Match by interface public key.
+	if ! sudo test -r "$conf"; then
+		return 1
+	fi
+
+	local priv pub interfaces iface iface_pub
+	priv="$(sudo awk -F= '/^[[:space:]]*PrivateKey[[:space:]]*=/{gsub(/[[:space:]]/,"",$2); print $2; exit}' "$conf")"
+	[[ -n "$priv" ]] || return 1
+
+	# Fix common missing base64 padding (43 -> 44)
+	if [[ ${#priv} -eq 43 ]]; then
+		priv="${priv}="
+	fi
+
+	# Validate length (WireGuard base64 key should be 44 chars)
+	if [[ ${#priv} -ne 44 ]]; then
+		echo "✗ Invalid PrivateKey length in $conf (${#priv} chars, expected 44)."
+		return 1
+	fi
+
+	pub="$(printf '%s' "$priv" | wg pubkey 2>/dev/null)" || return 1
+	[[ -n "$pub" ]] || return 1
+
+	interfaces="$(sudo wg show interfaces 2>/dev/null || true)"
+	for iface in $interfaces; do
+		# "wg show <iface> public-key" exists on most installs; fallback to parsing.
+		iface_pub="$(sudo wg show "$iface" public-key 2>/dev/null ||
+			sudo wg show "$iface" 2>/dev/null | awk -F': ' '/public key:/{print $2; exit}')"
+		if [[ "$iface_pub" == "$pub" ]]; then
+			echo "$iface"
+			return 0
+		fi
+	done
+
+	return 1
+}
+
+vpn_status() {
+	local name="$1"
+	_vpn_need_name "$name" "vpn_status" || return $?
+
+	local iface=""
+	iface="$(_vpn_find_iface "$name" 2>/dev/null || true)"
+
+	echo "▶ Status: $name"
+	if [[ -z "$iface" ]]; then
+		echo "  - link: DOWN"
+		return 0
+	fi
+
+	if [[ "$iface" != "$name" ]]; then
+		echo "  - interface: $iface (profile: $name)"
+	else
+		echo "  - interface: $iface"
+	fi
+
+	sudo wg show "$iface" || true
+	# Optional: show IP without getting fancy; only tiny branching
+	if command -v ip >/dev/null 2>&1; then
+		ip -brief addr show dev "$iface" 2>/dev/null || true
+	elif command -v ifconfig >/dev/null 2>&1; then
+		ifconfig "$iface" 2>/dev/null | awk '/inet /{print $2}' | head -n1 | awk '{print "  - ip: " $1}'
+	fi
+}
+
+menu_vpn() {
+	local default_name="${1:-}"
+	local name="${default_name:-}"
+
+	while true; do
+		clear
+		echo $hr_line
+		echo "            🌐     VPN Menu     🌐"
+		echo $hr_line
+		echo "Profile: ${name:-<not set>}"
+		echo
+		echo "1) Set/Change profile name"
+		echo "2) Setup wireguard client (install config + AppArmor workaround)"
+		echo "3) START wireguard"
+		echo "4) STOP wireguard"
+		echo "5) Status"
+		echo "6) 🔙 Back to Main Menu"
+		echo
+		read -r -p "Enter your choice [1-6]: " vpn_choice
+
+		case "$vpn_choice" in
+		1)
+			read -r -p "Enter profile name (interface/config base name): " name
+			;;
+		2)
+			if [[ -z "$name" ]]; then echo "✗ set a profile name first (option 1)"; else vpn_setup "$name"; fi
+			;;
+		3)
+			if [[ -z "$name" ]]; then echo "✗ set a profile name first (option 1)"; else vpn_up "$name"; fi
+			;;
+		4)
+			if [[ -z "$name" ]]; then echo "✗ set a profile name first (option 1)"; else vpn_down "$name"; fi
+			;;
+		5)
+			if [[ -z "$name" ]]; then echo "✗ set a profile name first (option 1)"; else vpn_status "$name"; fi
+			;;
+		6)
+			menu_main
+			return 0
+			;;
+		*)
+			echo "Invalid option."
+			;;
+		esac
+
+		# Use your existing pause() if you already have one in setup.sh
+		if command -v pause >/dev/null 2>&1; then
+			pause
+		else
+			read -r -p "Press Enter to continue..." _
+		fi
+	done
+}
+
 ################################################################################
 ######       MENUs
 ################################################################################
 
-hr_line="────────────────────────────────────────────"
+hr_line="────────────────────────────────────────────" #44
 
 menu_remote() {
 
@@ -839,7 +1098,7 @@ menu_remote() {
 
 		clear
 		echo $hr_line
-		echo "🧱 Remote Login (SSH) Menu 🧱"
+		echo "        🧱 Remote Login (SSH) Menu 🧱"
 		echo $hr_line
 		echo "*Terminal requires Full Disk Access"
 		echo "1) 🔒 Enable Remote Login (SSH)"
@@ -914,7 +1173,7 @@ menu_firewall() {
 
 		clear
 		echo $hr_line
-		echo "🧱 Firewall / Packet Filtering Menu 🧱"
+		echo "    🧱 Firewall / Packet Filtering Menu 🧱"
 		echo $hr_line
 		echo "1) 🔒 Enable Firewall"
 		echo "2) 🔓 Disable Firewall"
@@ -972,7 +1231,7 @@ menu_dev() {
 
 		clear
 		echo $hr_line
-		echo "💻 Development Applications Menu 💻"
+		echo "     💻 Development Applications Menu 💻"
 		echo $hr_line
 		echo "1) Development Tools (includes kdoctor)"
 		echo "2) Android Studio"
@@ -1059,7 +1318,7 @@ menu_main() {
 
 		clear
 		#echo $hr_line
-		echo "           🍎 Mac Setup Menu 🍎"
+		echo "             🍎 Mac Setup Menu 🍎"
 		echo $hr_line
 		echo "1) 🍺 Install/Update Homebrew"
 		echo "2) Install Homebrew Applications"
@@ -1080,16 +1339,17 @@ menu_main() {
 		echo "13) Manage Remote Login (SSH)"
 		echo "14) 🧱 Manage Firewall / Packet Filtering"
 		echo "15) 🌐 Manage DoH DNS"
+		echo "16) Manage Wireguard VPN Client"
 		echo $hr_line
-		echo "16) 📺 Install OpenShot"
-		echo "17) 🖼️ Install Blender/Gimp/Inkscape"
-		echo "18) Install Freecad"
-		echo "19) Install OrcaSlicer"
-		echo "20) Install RP-Imager"
+		echo "17) 📺 Install OpenShot"
+		echo "18) 🖼️ Install Blender/Gimp/Inkscape"
+		echo "19) Install Freecad"
+		echo "20) Install OrcaSlicer"
+		echo "21) Install RP-Imager"
 		echo $hr_line
-		echo "21) Exit"
+		echo "22) Exit"
 		echo ""
-		read -rp "Please select an option [1-21]: " choice
+		read -rp "Please select an option [1-22]: " choice
 		case "$choice" in
 		1)
 			install_homebrew
@@ -1156,24 +1416,28 @@ menu_main() {
 			echo "DoH DNS setup finished."
 			;;
 		16)
-			install_cask "openshot-video-editor"
+			#menu_vpn "$1"
+			menu_vpn
 			;;
 		17)
+			install_cask "openshot-video-editor"
+			;;
+		18)
 			install_cask "blender"
 			install_cask "gimp"
 			install_cask "inkscape"
 			install_cask "upscayl"
 			;;
-		18)
+		19)
 			install_cask "freecad"
 			;;
-		19)
+		20)
 			install_cask "orcaslicer"
 			;;
-		20)
+		21)
 			install_cask "raspberry-pi-imager"
 			;;
-		21)
+		22)
 			echo "Exiting."
 			exit 0
 			;;
