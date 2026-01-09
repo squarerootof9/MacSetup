@@ -144,8 +144,7 @@ setup_dock() {
 	# Install dockutil if not already installed
 	if ! command -v dockutil &>/dev/null; then
 		echo "dockutil not found, installing via Homebrew..."
-		install_homebrew
-		brew install dockutil
+		install_formulae dockutil
 	fi
 
 	# Remove all existing Dock items
@@ -531,6 +530,92 @@ disable_pf() {
 	sudo pfctl -d >/dev/null 2>&1 || true
 }
 
+###################
+### SSH SIGNING ###
+###################
+
+setup_git_ssh_signing() {
+
+	# ---- edit these (or export NAME/EMAIL before running) ----
+	#: "${NAME:=""}"
+	#: "${EMAIL:=""}"
+	# ---------------------------------------------------------
+
+	local NAME="${1:-}"
+	local EMAIL="${2:-}"
+
+	local SIGNING_KEY="$HOME/.ssh/id_ecdsa"
+	local GITHUB_IDENTITY="$HOME/.ssh/id_ecdsa_auth"
+	local ALLOWED_SIGNERS_DIR="$HOME/.config/git"
+	local ALLOWED_SIGNERS_FILE="$ALLOWED_SIGNERS_DIR/allowed_signers"
+	local SSHCONF="$HOME/.ssh/config"
+
+	echo ""
+	echo "Provide GITHUB account information for GIT config."
+	[[ -z "$NAME" ]] && read -r -p "Enter account name: " NAME
+	[[ -z "$EMAIL" ]] && read -r -p "Enter account email: " EMAIL
+	echo ""
+
+	# Required keys
+	[[ -f "$SIGNING_KEY" ]] || {
+		echo "Missing signing key: $SIGNING_KEY"
+		return 1
+	}
+	[[ -f "$SIGNING_KEY.pub" ]] || {
+		echo "Missing public key: $SIGNING_KEY.pub"
+		return 1
+	}
+	[[ -f "$GITHUB_IDENTITY" ]] || {
+		echo "Missing GitHub identity key: $GITHUB_IDENTITY"
+		return 1
+	}
+
+	# SSH dir + config
+	mkdir -p "$HOME/.ssh"
+	chmod 700 "$HOME/.ssh"
+	touch "$SSHCONF"
+	chmod 600 "$SSHCONF" || true
+
+	# Key perms (don’t die if a .pub is missing)
+	chmod 600 "$SIGNING_KEY" "$GITHUB_IDENTITY" 2>/dev/null || true
+	chmod 644 "$SIGNING_KEY.pub" "$GITHUB_IDENTITY.pub" 2>/dev/null || true
+
+	# allowed_signers (for local verification of ssh-signed commits/tags)
+	mkdir -p "$ALLOWED_SIGNERS_DIR"
+	(
+		umask 077
+		awk -v email="$EMAIL" '{print email, $1, $2}' "$SIGNING_KEY.pub" >"$ALLOWED_SIGNERS_FILE"
+	)
+
+	# Git config (does NOT overwrite ~/.gitconfig)
+	git config --global user.name "$NAME"
+	git config --global user.email "$EMAIL"
+	git config --global gpg.format ssh
+	git config --global user.signingkey "$SIGNING_KEY"
+	git config --global gpg.ssh.allowedSignersFile "$ALLOWED_SIGNERS_FILE"
+	git config --global commit.gpgsign true
+	git config --global tag.gpgsign true
+
+	# Ensure github.com uses your preferred identity key
+	if ! grep -qE '^[[:space:]]*Host[[:space:]]+github\.com([[:space:]]|$)' "$SSHCONF"; then
+		cat >>"$SSHCONF" <<EOF
+
+Host github.com
+  HostName github.com
+  User git
+  IdentityFile $GITHUB_IDENTITY
+  IdentitiesOnly yes
+EOF
+	fi
+
+	echo ""
+	echo "Testing GitHub SSH..."
+	ssh -T git@github.com || true
+	echo ""
+
+	#git log --show-signature -1 || true
+}
+
 ##################
 ###### DNS #######
 ##################
@@ -896,15 +981,17 @@ menu_dev() {
 		echo "5) JetBrains WebStorm"
 		echo "6) Arduino"
 		echo "7) Glade (GTK+ UI Designer)"
-		echo "8) 🔙 Back to Main Menu"
+
+		echo "8) Setup GIT ssh signing/authentication keys"
+		echo "9) 🔙 Back to Main Menu"
 		echo ""
-		read -rp "Please select an option [1-8]: " remote_choice
+		read -rp "Please select an option [1-9]: " remote_choice
 
 		case "$remote_choice" in
 		1)
-			install_formulae "wget"
-			install_formulae "telnet"
-			install_formulae "kdoctor"
+			install_formulae wget
+			install_formulae telnet
+			install_formulae kdoctor
 			;;
 		2)
 			install_cask "android-studio"
@@ -944,9 +1031,12 @@ menu_dev() {
 			install_cask "arduino-ide"
 			;;
 		7)
-			install_formulae "glade"
+			install_formulae glade
 			;;
-		8 | exit)
+		8)
+			setup_git_ssh_signingw
+			;;
+		9 | exit)
 			echo "Exiting."
 			menu_main
 			;;
@@ -1016,7 +1106,7 @@ menu_main() {
 
 			;;
 		3)
-			install_formulae "btop"
+			install_formulae btop
 			;;
 		4)
 			install_cask "veracrypt"
