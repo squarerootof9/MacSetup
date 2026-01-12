@@ -12,6 +12,7 @@ brew "dockutil"
 brew "iproute2mac"
 brew "opensc"
 brew "nano" # no more fake pico cosplay
+brew "wget"
 brew "wireguard-tools"
 
 # Casks (GUI applications)
