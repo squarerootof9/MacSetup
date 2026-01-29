@@ -21,6 +21,51 @@ alias c='clear'                           # if you want even shorter than cl
 alias q='exit'                            # if you want even shorter than xx
 alias m='btop'                            # m for 'monitor'
 alias s='cd ~/Downloads/MacSetup-main'    # <- quick path to there
+alias x=extract
+
+extract() {
+  [[ $# -ge 1 ]] || { echo "usage: extract <archive> [...]" >&2; return 2; }
+
+  local f out
+  local -a cmd
+
+  for f in "$@"; do
+    [[ -f "$f" ]] || { echo "extract: not a file: $f" >&2; continue; }
+
+    out="${f##*/}.extract"
+
+    case "$f" in
+      *.tar.bz2|*.tbz2) cmd=(tar -xjf "$f") ;;
+      *.tar.gz|*.tgz)   cmd=(tar -xzf "$f") ;;
+      *.tar.xz|*.txz)   cmd=(tar -xJf "$f") ;;
+      *.tar.zst|*.tzst) cmd=(tar --zstd -xf "$f") ;;
+      *.tar.lzma)       cmd=(tar --lzma -xf "$f") ;;
+      *.tar)            cmd=(tar -xf "$f") ;;
+
+      *.bz2)            cmd=(bunzip2 -- "$f") ;;
+      *.gz)             cmd=(gunzip -- "$f") ;;
+      *.xz)             cmd=(unxz -- "$f") ;;
+      *.zst)            cmd=(unzstd -- "$f") ;;
+      *.Z)              cmd=(uncompress -- "$f") ;;
+
+      *.zip)            cmd=(unzip -q -- "$f") ;;
+      *.7z)             cmd=(7z x -y -- "$f") ;;
+      *.rar)            cmd=(unrar x -o+ -- "$f") ;;
+
+      *.deb)            cmd=(dpkg-deb -x "$f" "$out") ;;
+      *.rpm)            cmd=(bash -lc 'mkdir -p "$1" && rpm2cpio "$2" | (cd "$1" && cpio -idmu)' _ "$out" "$f") ;;
+
+      *.AppImage|*.appimage)
+                       cmd=(bash -lc 'mkdir -p "$1" && chmod +x "$2" && (cd "$1" && "$2" --appimage-extract >/dev/null)' _ "$out" "$f") ;;
+      *.squashfs|*.sqsh) cmd=(unsquashfs -d "$out" -- "$f") ;;
+
+      *) echo "extract: don't know how to extract: $f" >&2; continue ;;
+    esac
+
+    command -v "${cmd[1]}" >/dev/null 2>&1 || { echo "extract: missing tool: ${cmd[1]} (for $f)" >&2; continue; }
+    "${cmd[@]}"
+  done
+}
 
 # ---- git quick commands ----
 
