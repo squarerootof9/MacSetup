@@ -33,6 +33,9 @@ pause() {
 
 setup_finder() {
 
+	# Enable Single Click in Finder (doesn't seem to work 🫤)
+	defaults write com.apple.finder SingleClick -bool true
+
 	# Show all files in Finder
 	defaults write com.apple.finder AppleShowAllFiles -bool true
 
@@ -154,6 +157,7 @@ setup_dock() {
 	apps=(
 		"/System/Applications/Launchpad.app"
 		"/System/Applications/System Settings.app"
+		"/System/Applications/Utilities/Activity Monitor.app"
 		"/System/Applications/Utilities/Terminal.app"
 		"/Applications/Geany.app"
 		"/Applications/Firefox.app"
@@ -338,13 +342,67 @@ install_java() {
 
 }
 
+firefox_policy_install_addons() {
+
+	#https://mozilla.github.io/policy-templates/
+
+	# AMO "latest" endpoints (not pinned to a specific file build)
+	local -a addon_urls=(
+		"https://addons.mozilla.org/firefox/downloads/latest/adblock-for-youtube/latest.xpi"
+		"https://addons.mozilla.org/firefox/downloads/latest/privacy-badger17/latest.xpi"
+	)
+
+	local policy_dir="/etc/firefox/policies"
+
+	if [[ "$(uname -s)" == "Darwin" ]]; then
+		policy_dir="/Applications/Firefox.app/Contents/Resources/distribution"
+	fi
+
+	sudo mkdir -p "$policy_dir"
+
+	local policy_file="$policy_dir/policies.json"
+	# Backup if it exists (keeps your scripts idempotent & reversible)
+	if sudo test -f "$policy_file"; then
+		sudo cp -a "$policy_file" "$policy_file.bak.$(date +%F_%H%M%S)"
+	fi
+
+	# Write a minimal policies.json that installs these extensions
+	sudo tee "$policy_file" >/dev/null <<JSON
+{
+  "policies": {
+    "Extensions": {
+      "Install": [
+        "${addon_urls[0]}",
+        "${addon_urls[1]}"
+      ]
+    }
+  }
+}
+JSON
+
+	#echo "✅ Wrote $policy_file"
+	#echo "   Restart Firefox to apply (the add-ons install on startup)."
+}
+
 install_apps() {
+
+	echo ""
+	echo "Getting ready to install Brewfile packages."
+	echo "Looking for Brewfile at $SCRIPT_DIR/Brewfile"
 
 	# Use Brewfile to install packages
 	if [ -f "$SCRIPT_DIR/Brewfile" ]; then
+
+		echo "Brewfile found."
+		echo "Installing packages..."
+
 		if ! brew bundle --file="$SCRIPT_DIR/Brewfile"; then
 			echo "brew bundle encountered errors. Please check the output above."
 		fi
+
+		#firefox extras
+		firefox_policy_install_addons
+
 	else
 		echo "Brewfile not found in $SCRIPT_DIR."
 		exit 1
