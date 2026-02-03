@@ -57,7 +57,7 @@ extract() {
 
       *.AppImage|*.appimage)
                        cmd=(bash -lc 'mkdir -p "$1" && chmod +x "$2" && (cd "$1" && "$2" --appimage-extract >/dev/null)' _ "$out" "$f") ;;
-      *.squashfs|*.sqsh) cmd=(unsquashfs -d "$out" -- "$f") ;;
+      *.squashfs|*.sqsh) cmd=(unsquashfs "$f") ;;
 
       *) echo "extract: don't know how to extract: $f" >&2; continue ;;
     esac
