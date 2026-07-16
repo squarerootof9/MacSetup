@@ -11,6 +11,12 @@ ms-vscode.makefile-tools
 ms-vscode.powershell
 pycom.pymakr
 
+nomicfoundation.hardhat-solidity
+
+dart-code.flutter
+dart-code.dart-code
+ricardo-emerson.dart-data-class-tools
+
 mads-hartmann.bash-ide-vscode
 ms-vscode.cpptools
 rust-lang.rust-analyzer
