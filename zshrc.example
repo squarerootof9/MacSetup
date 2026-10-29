@@ -19,9 +19,20 @@ alias count='find . -type f | wc -l'
 
 alias c='clear'                           # if you want even shorter than cl
 alias q='exit'                            # if you want even shorter than xx
-alias m='btop'                            # m for 'monitor'
+#alias m='btop'                            # m for 'monitor'
 alias s='cd ~/Downloads/MacSetup-main'    # <- quick path to there
 alias x=extract
+
+m() {
+	# m for monitor, but btop is more modern than htop
+	if command -v btop >/dev/null 2>&1; then
+		btop "$@"
+	elif command -v htop >/dev/null 2>&1; then
+		htop "$@"
+	else
+		top "$@"
+	fi
+}
 
 extract() {
   [[ $# -ge 1 ]] || { echo "usage: extract <archive> [...]" >&2; return 2; }
